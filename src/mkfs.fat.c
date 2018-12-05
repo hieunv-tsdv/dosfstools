@@ -1290,7 +1290,7 @@ static void setup_tables(void)
 	    de->name[0] = 0x05;
 	de->attr = ATTR_VOLUME;
 	if (create_time != (time_t)-1) {
-	    if (!invariant)
+	    if (!invariant && !getenv("SOURCE_DATE_EPOCH"))
 		ctime = localtime(&create_time);
 	    else
 		ctime = gmtime(&create_time);
@@ -1479,6 +1479,7 @@ int main(int argc, char **argv)
     int blocks_specified = 0;
     struct timeval create_timeval;
     long long conversion;
+    char *source_date_epoch = NULL;
 
     enum {OPT_HELP=1000, OPT_INVARIANT, OPT_MBR, OPT_VARIANT, OPT_CODEPAGE, OPT_OFFSET};
     const struct option long_options[] = {
@@ -1499,8 +1500,20 @@ int main(int argc, char **argv)
 	    program_name = p + 1;
     }
 
-    if (gettimeofday(&create_timeval, NULL) == 0 && create_timeval.tv_sec != (time_t)-1)
+    source_date_epoch = getenv("SOURCE_DATE_EPOCH");
+    if (source_date_epoch) {
+        errno = 0;
+        conversion = strtoll(source_date_epoch, &tmp, 10);
+        create_time = conversion;
+        if (!isdigit(*source_date_epoch) || *tmp != '\0' || errno != 0
+                || (long long)create_time != conversion) {
+            die("SOURCE_DATE_EPOCH is too big or contains non-digits: \"%s\"",
+                source_date_epoch);
+        }
+    } else if (gettimeofday(&create_timeval, NULL) == 0 && create_timeval.tv_sec != (time_t)-1) {
         create_time = create_timeval.tv_sec;
+    }
+
     volume_id = generate_volume_id();
     check_atari();
 

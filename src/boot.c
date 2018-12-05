@@ -32,6 +32,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <time.h>
+#include <errno.h>
+#include <ctype.h>
 
 #include "common.h"
 #include "fsck.fat.h"
@@ -736,6 +738,7 @@ static void write_volume_label(DOS_FS * fs, char *label)
 {
     time_t now;
     struct tm *mtime;
+    char *source_date_epoch = NULL;
     off_t offset;
     int created;
     DIR_ENT de;
@@ -751,8 +754,24 @@ static void write_volume_label(DOS_FS * fs, char *label)
     if (de.name[0] == 0xe5)
 	de.name[0] = 0x05;
 
-    now = time(NULL);
-    mtime = (now != (time_t)-1) ? localtime(&now) : NULL;
+    source_date_epoch = getenv("SOURCE_DATE_EPOCH");
+    if (source_date_epoch) {
+        char *tmp = NULL;
+        long long conversion = 0;
+        errno = 0;
+        conversion = strtoll(source_date_epoch, &tmp, 10);
+        now = conversion;
+        if (!isdigit(*source_date_epoch) || *tmp != '\0' || errno != 0
+                || (long long)now != conversion) {
+            die("SOURCE_DATE_EPOCH is too big or contains non-digits: \"%s\"",
+                source_date_epoch);
+        }
+        mtime = gmtime(&now);
+    } else {
+        now = time(NULL);
+        mtime = (now != (time_t)-1) ? localtime(&now) : NULL;
+    }
+
     if (mtime && mtime->tm_year >= 80 && mtime->tm_year <= 207) {
 	de.time = htole16((unsigned short)((mtime->tm_sec >> 1) +
 					   (mtime->tm_min << 5) +
