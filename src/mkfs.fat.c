@@ -1077,7 +1077,7 @@ static void setup_tables(void)
         }
 
         /* If is not available then generate random 32 bit disk signature */
-        if (invariant || (getenv("SOURCE_DATE_EPOCH") && volume_id))
+        if (invariant || getenv("SOURCE_DATE_EPOCH"))
             disk_sig = volume_id;
         else if (!disk_sig)
             disk_sig = generate_volume_id();
